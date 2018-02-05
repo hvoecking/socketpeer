@@ -115,6 +115,7 @@ SocketPeer.prototype.connect = function () {
   }
 
   self.socket = new WebSocket(self.url.replace(/^http/, 'ws'));
+  self.socket.binaryType = 'arraybuffer';
   self.socket.onopen = function () {
     self.pair();
   };
@@ -122,6 +123,10 @@ SocketPeer.prototype.connect = function () {
     self._socketError(new Error(event.data || 'Unexpected WebSocket error'));
   };
   self.socket.onmessage = function (event) {
+    if (event.data instanceof ArrayBuffer) {
+      self.emit('data', event.data);
+      return;
+    }
     var obj = {};
     try {
       obj = JSON.parse(event.data);
@@ -246,6 +251,10 @@ SocketPeer.prototype._send = function (type, data) {
   var self = this;
   if (!self.socket) {
     console.warn('Attempted to send message when socket was closed: %s', type);
+    return;
+  }
+  if (data instanceof Uint8Array) {
+    self.socket.send(data);
     return;
   }
   data = JSON.stringify({

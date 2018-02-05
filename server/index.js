@@ -86,6 +86,10 @@ function SocketPeerServer (opts) {
     }));
   }
 
+  function onClose(fn) {
+    notifyClose = fn;
+  }
+
   opts.wsServer.on('connection', client => {
     client.sendMessage = sendMessage.bind(client);
 
@@ -93,7 +97,10 @@ function SocketPeerServer (opts) {
 
     client.on('message', msg => {
       console.log('[message] Received message: %s', msg);
-
+      if (msg instanceof Uint8Array) {
+        client.emit('message.binary', msg);
+        return;
+      }
       var obj = JSON.parse(msg);
       client.emit('message.' + obj.type, obj.data);
     });
@@ -106,6 +113,14 @@ function SocketPeerServer (opts) {
       }
     });
 
+    client.on('message.binary', data => {
+      console.log('[pair] Received binary:', data);
+
+      if (client.peer) {
+        client.peer.send(data);
+      }
+    });
+
     client.on('message.pair', pairCode => {
       console.log('[pair] Received pairCode:', pairCode);
 
@@ -114,7 +129,7 @@ function SocketPeerServer (opts) {
           message: '`pairCode` "' + pairCode + '" is already in use',
           pairCode: pairCode
         });
-        closeConnection(pairCode, function (clientToCheck) {
+        closeConnection(pairCode, clientToCheck => {
           return clientToCheck !== client;
         });
       }
