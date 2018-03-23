@@ -10,8 +10,11 @@ const ws = require('ws');
 const nodeEnv = process.env.NODE_ENV || 'development';
 const WebSocketServer = ws.Server;
 
-function SocketPeerServer (opts) {
+function SocketPeerServer (opts, onClose) {
+
   opts = opts || {};
+
+  let notifyClose = onClose;
 
   if (!opts.httpServer) {
     const host = opts.host || process.env.SOCKETPEER_HOST || process.env.HOST || '0.0.0.0';
@@ -84,10 +87,6 @@ function SocketPeerServer (opts) {
       type: type,
       data: data
     }));
-  }
-
-  function onClose(fn) {
-    notifyClose = fn;
   }
 
   opts.wsServer.on('connection', client => {
@@ -174,6 +173,9 @@ function SocketPeerServer (opts) {
 
     client.on('close', () => {
       const pairCode = client.pairCode;
+      if (notifyClose) {
+        notifyClose(pairCode);
+      }
       if (pairCode in peersWaiting && peersWaiting[pairCode] === client) {
         peersWaiting[pairCode] = null;
       }
